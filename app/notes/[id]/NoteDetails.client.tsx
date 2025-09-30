@@ -1,38 +1,45 @@
 "use client";
-
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { fetchNoteById } from "@/lib/api";
 import { Note } from "@/types/note";
+import Modal from "@/components/Modal/Modal";
 import css from "./NoteDetails.module.css";
 
-interface NoteDetailsClientProps {
+interface NoteDetailsProps {
   id: string;
 }
 
-export default function NoteDetailsClient({ id }: NoteDetailsClientProps) {
-  const {
-    data: note,
-    isLoading,
-    error,
-  } = useQuery<Note, Error>({
-    queryKey: ["note", id],
-    queryFn: () => fetchNoteById(id),
-    refetchOnMount: false,
-  });
+export default function NoteDetails({ id }: NoteDetailsProps) {
+  const [note, setNote] = useState<Note | null>(null);
+  const router = useRouter();
 
-  if (isLoading) return <p>Loading, please wait...</p>;
-  if (error) return <p>Could not fetch note. {error.message}</p>;
-  if (!note) return <p>Note not found.</p>;
+  useEffect(() => {
+    fetchNoteById(id)
+      .then(setNote)
+      .catch(() => setNote(null));
+  }, [id]);
+
+  if (!note) return null;
 
   return (
-    <div className={css.container}>
-      <div className={css.item}>
-        <div className={css.header}>
-          <h2>{note.title}</h2>
-        </div>
-        <p className={css.content}>{note.content}</p>
-        <p className={css.date}>{note.createdAt}</p>
+    <Modal
+      onClose={() => {
+        // просто пытаемся вернуться назад
+        router.back();
+
+        // если URL не изменился (нет истории), делаем fallback через setTimeout
+        setTimeout(() => {
+          if (window.location.pathname.startsWith("/notes/")) {
+            router.push("/notes/filter");
+          }
+        }, 50);
+      }}
+    >
+      <div className={css.wrapper}>
+        <h2>{note.title}</h2>
+        <p>{note.content}</p>
       </div>
-    </div>
+    </Modal>
   );
 }
