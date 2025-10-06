@@ -1,45 +1,79 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import ErrorMessage from "@/components/ErrorMessage/ErrorMessage";
+import Modal from "@/components/Modal/Modal";
+import NoteForm from "@/components/NoteForm/NoteForm";
+import NoteList from "@/components/NoteList/NoteList";
+import Pagination from "@/components/Pagination/Pagination";
+import SearchBox from "@/components/SearchBox/SearchBox";
 import { fetchNotes } from "@/lib/api";
-import { Note } from "@/types/note";
-import css from "./Notes.client.module.css";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { Toaster } from "react-hot-toast";
+import { useDebouncedCallback } from "use-debounce";
+import css from "./NotesPage.module.css";
 
-interface NotesProps {
-  tag?: string;
+interface NotesClientProps {
+  category?: string;
 }
 
-export default function Notes({ tag }: NotesProps) {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function NotesClient({ category }: NotesClientProps) {
+  const [topic, setTopic] = useState("");
+  const [page, setPage] = useState(1);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  useEffect(() => {
-    setLoading(true);
+  const { data, isError, isSuccess } = useQuery({
+    queryKey: ["notes", topic, page, category],
+    queryFn: () => fetchNotes(topic, page, category),
+    placeholderData: keepPreviousData,
+    refetchOnMount: false,
+  });
 
-    // Не передаём search, если тег "All" или undefined
-    const params = tag && tag !== "All" ? { search: tag } : undefined;
+  const totalPages = data?.totalPages ?? 0;
 
-    fetchNotes(params)
-      .then((data) => setNotes(data.notes))
-      .catch((err) => {
-        console.error(err);
-        setNotes([]);
-      })
-      .finally(() => setLoading(false));
-  }, [tag]);
+  function openModal() {
+    setIsModalOpen(true);
+  }
 
-  if (loading) return <p className={css.loading}>Loading notes...</p>;
-  if (!notes.length) return <p className={css.empty}>No notes found</p>;
+  function closeModal() {
+    setIsModalOpen(false);
+  }
+
+  const updateSearchWord = useDebouncedCallback((searchWord: string) => {
+    setTopic(searchWord);
+    setPage(1);
+  }, 500);
 
   return (
-    <div className={css.notes}>
-      {notes.map((note) => (
-        <Link key={note.id} href={`/notes/${note.id}`} className={css.note}>
-          <h3>{note.title}</h3>
-          <p>{note.content}</p>
-        </Link>
-      ))}
+    <div className={css.app}>
+      <header className={css.toolbar}>
+        <SearchBox onChange={updateSearchWord} />
+        {isSuccess && totalPages > 1 && (
+          <Pagination
+            totalPages={totalPages}
+            page={page}
+            updatePage={setPage}
+          />
+        )}
+        <button className={css.button} onClick={openModal}>
+          Create note +
+        </button>
+      </header>
+      {isError && (
+        <ErrorMessage text="There was an error, please try again..." />
+      )}
+      {data !== undefined && data?.notes.length === 0 && (
+        <ErrorMessage text="No notes found" />
+      )}
+      {data !== undefined && data?.notes.length > 0 && (
+        <NoteList notes={data?.notes} />
+      )}
+      {isModalOpen && (
+        <Modal onClose={closeModal}>
+          <NoteForm onClose={closeModal} />
+        </Modal>
+      )}
+      <Toaster />
     </div>
   );
 }

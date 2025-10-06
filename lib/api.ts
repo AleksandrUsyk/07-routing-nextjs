@@ -1,68 +1,58 @@
 import axios from "axios";
-import { Note } from "@/types/note";
+import type { Note, NoteFormData } from "../types/note";
 
-const api = axios.create({
-  baseURL: "https://notehub-public.goit.study/api",
-  headers: {
-    Authorization: `Bearer ${process.env.NEXT_PUBLIC_NOTEHUB_TOKEN}`,
-  },
-});
+interface ResponseAPI {
+  notes: Note[];
+  totalPages: number;
+}
 
-export async function fetchNotes(params?: {
-  page?: number;
-  search?: string;
-}): Promise<{ notes: Note[]; totalPages: number }> {
-  const { page = 1, search = "" } = params || {};
-  const { data } = await api.get<{ notes: Note[]; totalPages: number }>(
-    "/notes",
-    { params: { page, search } }
-  );
-
-  return {
-    notes: data.notes,
-    totalPages: data.totalPages ?? 1,
+interface OptionsAPI {
+  params: {
+    search: string;
+    tag?: string;
+    page: number;
+    perPage: number;
   };
 }
 
-export async function fetchNoteById(id: string): Promise<Note> {
-  const { data } = await api.get<Note>(`/notes/${id}`);
-  return data;
+axios.defaults.baseURL = "https://notehub-public.goit.study/api";
+axios.defaults.headers.common["Authorization"] = `Bearer ${
+  process.env.NEXT_PUBLIC_NOTEHUB_TOKEN
+}`;
+
+export async function fetchNotes(
+  searchWord: string,
+  page: number,
+  tag?: string
+) {
+  if (tag === "All") {
+    tag = undefined;
+  }
+
+  const options: OptionsAPI = {
+    params: {
+      search: searchWord,
+      tag: tag,
+      page: page,
+      perPage: 12,
+    },
+  };
+
+  const res = await axios.get<ResponseAPI>("/notes", options);
+  return res.data;
 }
 
-export async function createNote(
-  note: Omit<Note, "id" | "createdAt" | "updatedAt">
-): Promise<Note> {
-  try {
-    const { data } = await api.post<Note>("/notes", note);
-    return data;
-  } catch (err: unknown) {
-    if (axios.isAxiosError(err) && err.response?.status === 400) {
-      throw new Error("Bad request. Please check the data you are sending.");
-    }
-    if (axios.isAxiosError(err) && err.response?.status === 429) {
-      throw new Error(
-        "Too many requests. Please wait a moment before trying again."
-      );
-    }
-    if (err instanceof Error) throw err;
-    throw new Error("An unknown error occurred while creating the note.");
-  }
+export async function fetchNoteById(id: string) {
+  const res = await axios.get<Note>(`/notes/${id}`);
+  return res.data;
 }
 
-export async function deleteNote(id: string): Promise<Note> {
-  try {
-    const { data } = await api.delete<Note>(`/notes/${id}`);
-    return data;
-  } catch (err: unknown) {
-    if (axios.isAxiosError(err) && err.response?.status === 400) {
-      throw new Error("Bad request. Could not delete the note.");
-    }
-    if (axios.isAxiosError(err) && err.response?.status === 429) {
-      throw new Error(
-        "Too many requests. Please wait a moment before trying again."
-      );
-    }
-    if (err instanceof Error) throw err;
-    throw new Error("An unknown error occurred while deleting the note.");
-  }
+export async function createNote(data: NoteFormData) {
+  const res = await axios.post<Note>("/notes", data);
+  return res.data;
+}
+
+export async function deleteNote(id: string) {
+  const res = await axios.delete<Note>(`/notes/${id}`);
+  return res.data;
 }

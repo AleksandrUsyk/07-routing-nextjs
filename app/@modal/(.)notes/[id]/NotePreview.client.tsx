@@ -1,11 +1,12 @@
 "use client";
 
+import { useParams, useRouter } from "next/navigation";
+import css from "./NotePreview.module.css";
+import Modal from "@/components/Modal/Modal";
 import { fetchNoteById } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
-import css from "./NoteDetails.module.css";
 
-export default function NoteDetailsClient() {
+export default function NotePreviewClient() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
 
@@ -19,16 +20,16 @@ export default function NoteDetailsClient() {
     refetchOnMount: false,
   });
 
-  function handleBack() {
-    router.back();
-  }
-
   if (isLoading) return <p>Loading, please wait...</p>;
 
   if (error || !note) return <p>Something went wrong</p>;
 
+  function handleBack() {
+    router.back();
+  }
+
   return (
-    <>
+    <Modal onClose={handleBack}>
       <button className={css.backBtn} onClick={handleBack}>
         Back
       </button>
@@ -41,6 +42,6 @@ export default function NoteDetailsClient() {
           <p className={css.date}>{note.createdAt}</p>
         </div>
       </div>
-    </>
+    </Modal>
   );
 }
